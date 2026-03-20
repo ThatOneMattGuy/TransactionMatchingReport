@@ -12,7 +12,7 @@ While somewhat successful, usefulness was limited because:
 - this resulted in a list of hardcoded rules for each edge case, that still missed catching all valid matches and required constant updates as new exceptions were discovered
 
 ### Solution
-Instead of relying on EXACT matches across one or TWO signals, THIS version uses a **scoring model** to evaluate transactions based on POSSIBLE matches across ALL signals. Each transaction is then assigned a total score on a SPECTRUM of how likely it is to be a match, and results can then be filtered using a chosen 'confidence threshold'.
+Instead of relying on EXACT matches across one or TWO signals, THIS version evaluates transactions based on POSSIBLE matches across ALL signals, using a **weightable scoring model** where each signal can be 'tuned' to contribute differently to the overall match 'strength'. Each transaction is then assigned a total score on a SPECTRUM of how likely it is to be a match, and results can then be filtered using a chosen 'confidence threshold'. 
 
 This approach is more flexible, scalable, and consequently more EFFECTIVE
 
@@ -31,6 +31,7 @@ This approach is more flexible, scalable, and consequently more EFFECTIVE
   - (NEW) Detection of **invoice numbers** (or near matches) in transaction **Descriptions**
   - (NEW) Matching across **'FOAPAL' accounting codes** (Fund, Org, Acct, Prog, Actv, Locn, Index)
   - (NEW) **Transaction date proximity** to invoice date (also configurable)
+- **Weightable scoring model** allowing signals to contribute more or less to overall match confidence (e.g., a matching Amount can be set as more 'important' than a matching Date, etc.)
 - Configurable **confidence threshold** to control match strength
 - Advanced grouping and sorting to visually present results in a **human-readable format** 
 - Inline explanations showing **why** a transaction was flagged as a potential match
