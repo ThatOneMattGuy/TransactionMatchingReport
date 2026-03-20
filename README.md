@@ -39,7 +39,7 @@ This approach is more flexible, scalable, and consequently more EFFECTIVE
 - **SQL (Oracle)**  
   - **Common Table Expressions (CTEs)** for modular, stepwise data transformation  
   - **Window Functions** (`ROW_NUMBER`, `DENSE_RANK`, `MAX OVER`) for grouping, ranking, and sorting 
-  - **advanced visual presentation** using conditional logic (`CASE`) to improve human readability
+  - **Advanced visual presentation** using conditional logic (`CASE`) to improve human readability
   - **Multi-level aggregation** (Invoice, Fund, FOAPAL line)  
   - **Scoring / ranking model** implemented directly in SQL (no external tooling)
   - **Performance optimization** via staged filtering (reducing ~27M rows → targeted subset before heavy computation)  
