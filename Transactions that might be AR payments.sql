@@ -1,11 +1,11 @@
 /* =====
--- Banner Transactions that might be for an Outstanding Invoice (Updated 1/30/26 - MattC)
+-- Transactions that might be for an Outstanding Invoice (Updated 1/30/26 - MattC)
 
 The previous version of this report ONLY flagged transactions w/ an Amount that equaled an Open Invoice's TOTAL
-THIS version uses a SCORING model to identify a RANGE of 'likely matches' based on NUMEROUS 'flags' or 'Signals' and is therefore more BROAD, CUSTOMIZABLE, and consequently more EFFECTIVE
+THIS version uses a SCORING model to identify a RANGE of 'likely matches' based on NUMEROUS 'flags' or 'Signals'
 
 Process:
-   1 - Look in Banner Transaction Details table for any tran w/ SOME element (Signal) that matches an Open Invoice. Signals we check for:
+   1 - Looks in Transaction Details table and 'flags' any tran w/ SOME element (Signal) that matches an Open Invoice. Signals we check for:
          - If the tran DESCRIPTION lists the Invoice # of an open invoice OR contains ANY 'FIxxxxxx' Inv#
          - If one or more FOAPAL codes match one or more codes from an open Invoice
          - If the tran DATE is within a 'reasonable' timeframe of the Invoice (see 'Filtering Rules' note below)
@@ -25,16 +25,16 @@ Process:
          - Invoice level
          - FUND level total: in case an Invoice is split between MANY Fund codes and a pmt is only for ONE of the funds listed on the invoice
          - FOAPAL level: in case there are multiple INDEX codes (or others like Org, Locn, Prog, etc) and a pmt is only for one of THOSE
-         - Outstanding Balance: if an Invoice has been paid against in INSTALLMENTS or if other Adjustments have been made, this report now checks if a tranAmount matches just the REMAINING amount
+         - Outstanding Balance: if a payments against an Invoice have been made in INSTALLMENTS or if other Adjustments have been made, this report now checks if a tranAmount matches just the REMAINING amount
 
       - All that said, it is CRUCIAL to understand that Transactions and Invoices are compared to each other and matched at the FOAPAL LINE level
          - If an Inv listed as a match has only ONE FOAPAL line, the transaction is effectively a match for the entire invoice (ie - FOAPAL level = FUND level = INVOICE level)
          - If an Inv listed as a match has MORE than one FOAPAL line, the transaction is a match for JUST that FOAPAL LINE of that invoice
 
-      - The final report contains a LOT of info in an INDIVIDUAL row
+      - The final report already contains a LOT of info per UNIQUE row. On TOP of that,
          -- Because the Transactions table is JOINED on ANY match at the FOAPAL line level: 
-               - A duplicate row of transaction details is displayed for EVERY matching invoice, AND
-               - A duplicate row of invoice details is displayed for each matching FOAPAL line 
+               - A duplicate row of TRANSACTION details is displayed for EVERY matching invoice, AND
+               - A duplicate row of INVOICE details is displayed for each matching FOAPAL line from a matching Inv
          -- While perfectly logical to robots such as myself, this QUICKLY becomes overwhelming to mere mortals
          -- In an attempt to make things more clear and understandable, several columns are computed and used SOLELY to help arrange the data in a more 'visually digestible' format
          -- These 'visualization' columns do not affect the FUNCTION of the report; they exist ONLY for (but are essential to) its PRESENTATION
@@ -45,7 +45,7 @@ Process:
    
    Filtering Rules are based on following rationale:
       -- any tran that might be a pmt SHOULD be either a JV (JE16) or go through the Cashier's Office (RCP)
-      -- misplaced pmts WON'T be in accts 13114 or 10204 (per Gavin & Suzanne)
+      -- misplaced pmts WON'T be in {Excluded_AR_Accounts} (per Gavin & Suzanne)
       -- Payments are received no earlier than 2 weeks prior to the Inv date
          - Previous version used ON or AFTER Invoice date but in RARE instances pmts ARE received BEFORE an Inv has been created
          - This now catches those upto 2 wks prior. Anything EARLIER than that is excluded
@@ -98,9 +98,9 @@ WITH OutstandingInvoices AS (
          PARTITION BY bal.TXTINVOICE, fndln.FUND 
          ORDER BY fpln.ORGN, fpln.ACCT, fpln.PROG, fpln.ACTV,  fpln.LOCN) AS FOAPALline -- assigns number to each unique FOAPAL line. Used for 'visual decluttering' in Outstanding Invoices reporting page
 
-   FROM FASTAR.VWPOSTED_BALANCES bal
+   FROM {Invoices Table} bal
    
-   LEFT JOIN FASTAR.TAISMGR_TWRINVH i -- inv header table
+   LEFT JOIN {Invoice header table} i 
       ON bal.TXTINVOICE = i.TXTINVOICE
    
    LEFT JOIN (
@@ -109,14 +109,14 @@ WITH OutstandingInvoices AS (
          TXTINVOICE, 
          FUND, 
          SUM(CURAMOUNT) AS PERFUNDTOTAL
-      FROM FASTAR.TAISMGR_TWRINVA
+      FROM {Invoice Line details table}
       GROUP BY 
          TXTINVOICE, 
          FUND
    ) fndln
       ON bal.TXTINVOICE = fndln.TXTINVOICE
    
-   LEFT JOIN FASTAR.TAISMGR_TWRINVA fpln -- This adds the FOAPAL level details for every Inv  
+   LEFT JOIN {Invoice Line details table} fpln -- This adds the FOAPAL level details for every Inv  
       ON fndln.TXTINVOICE = fpln.TXTINVOICE
       AND fndln.FUND = fpln.FUND
    
@@ -125,11 +125,11 @@ WITH OutstandingInvoices AS (
       AND bal.OUTSTANDING > 0 -- Only invoices w/ outstanding amounts
 ),
 
--- 2) Get Banner Transactions and their details to match against Open Invoices
+-- 2) Get Transactions and their details to match against Open Invoices
 
 --- 2a) Get Transactions and details
-    -- Previous reports used FASTMCSL.SYNTRANDETAIL_ALL but that data took 2 days to hit FAST. Gavin found and suggested using this table instead bc it has near-real-time data
-BannerTransactions AS (
+    -- Previous reports used SYNTRANDETAIL_ALL but that data took 2 days to hit FAST. Gavin found and suggested using this table instead bc it has near-real-time data
+Transactions AS (
    -- Columns are aliased here so I can leave the rest of everything AS IS and NOT have to change ALL the references downstream to 'FGBTRNH_{column name}_CODE'
    SELECT
       FGBTRNH_SURROGATE_ID AS TranID,
@@ -151,12 +151,12 @@ BannerTransactions AS (
       FGBTRNH_RUCL_CODE AS RUCL_CODE,
       FGBTRNH_USER_ID AS USER_ID  
 
-FROM FASTFINANCE_QUERY.XVWFGBTRNH -- run as FASTMCSL.FGBTRNH in AR
+FROM {Transaction Table} 
 ),
 
 --- 2b) Pre-filter Transactions
-    -- As of 1/26, there are over 27 million transactions in Banner
-    -- the 'inv comparison' calculations in the SignalTransactions cte are VERY computation 'heavy' and should NOT be run for THAT many records
+    -- As of 1/26, there are over 27 million transactions
+    -- the 'inv comparison' calculations in the SignalTransactions cte below are VERY computation 'heavy' and should NOT be run for THAT many records
     -- ie, we need to get as small a dataset as possible 
     -- BUT need to ALSO not exclude TOO much upfront (previous query included only 'closing credits' (Field code = 'GCR') but SOME misplaced pmts were coded 'YTD' and were being left out) 
 FilteredTransactions AS (
@@ -167,11 +167,11 @@ FilteredTransactions AS (
       -- The below FrankenID can PROBABLY go away bc there's a 'Surrogate ID' in the NEW table. Keeping until sure it works the same
       --COALESCE(bt.description, '') || '|' || ABS(bt.amount) || '|' || bt.trandate || '|' || COALESCE(bt.document, '') || '|' || COALESCE(bt.docrefnum, '') || '|' || bt.seqnumber AS tranID -- ID used to flag transactions w/ an 'FI token' and count Debits later
       
-   FROM BannerTransactions bt
+   FROM Transactions bt
    
-   WHERE -- filtering rules from the intro
+   WHERE -- filtering rules outlined in the intro section
       bt.RUCL_CODE IN ('JE16','RCP') 
-      AND bt.ACCT NOT IN ('13114', '10204') 
+      AND bt.ACCT NOT IN ('{Excluded_AR_Accounts}') 
       AND bt.TRANDATE >= ( -- BIGGEST 'slicer' by far (Takes row count from 27mil to 2mil) 
          SELECT MIN(DATINVOICEDATE) - 14 -- occurred 2 wks prior or after OLDEST open invdate
          FROM OutstandingInvoices
@@ -182,7 +182,7 @@ FilteredTransactions AS (
 
 --- 2c) Pre-match the filtered transactions
     -- Checks each transaction for ANY matching signal (Amt, Date, FOAPAL codes, etc) that matches ANY signal from ANY open inv. Excludes rows with less than 2
-    -- While also filters of SORTS, the 'Signal checks' below are isolated HERE in an effort to run 'heavier' computations for only 250k rows instead of 27 million
+    -- the 'Signal checks' below are run HERE instead of with the filters in the previous CTE in an effort to run 'heavier' computations for only 250k rows instead of 27 million
 SignalTransactions AS (
    SELECT
       ft.*
@@ -221,7 +221,7 @@ SignalTransactions AS (
         -- DIGIT check keeps from flagging 'Fish and Chips' as having an Inv #
    -- Running REGEX is 'heavy' and we check for an 'FI Token' SEVERAL times later on 
    -- Storing a list of them HERE means we only need to run scans ONCE and then simply check if a transaction is flagged in this list as having an FI Token 
-   -- NOTE: we HAVE to use 'CHR()' instead of square brackets for the Regex functions bc although they're perfectly LEGIT, FAST's parser reads them wrong and prompts for user input. Sheesh
+   -- NOTE: we HAVE to use 'CHR()' instead of square brackets for the Regex functions bc although they're perfectly LEGIT, FAST's parser reads them wrong and prompts for user input and the query doesn't run. Sheesh
 FI_transactions AS (
    SELECT
       st.TranID, 
