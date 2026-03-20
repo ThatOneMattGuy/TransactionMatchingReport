@@ -14,7 +14,7 @@ While somewhat successful, usefulness was limited because:
 ### Solution
 Instead of relying on EXACT matches across one or TWO signals, THIS version evaluates transactions based on POSSIBLE matches across ALL signals, using a **weightable scoring model** where each signal can be 'tuned' to contribute differently to the overall match 'strength'. Each transaction is then assigned a total score on a SPECTRUM of how likely it is to be a match, and results can then be filtered using a chosen 'confidence threshold'. 
 
-This approach is more flexible, scalable, and consequently more EFFECTIVE
+Essentially, this approach acts as a rule-based “fuzzy matching” system built entirely in SQL, using weighted signals and a scoring model to rank likely matches, which is consequently more flexible, scalable, and therefore MUCH more effective and useful.
 
 ## Key Highlights:
 - Because matching criteria is derived from only those invoices that are currently open, the system is now **dynamic** and no longer relies on maintaining static and brittle rules to catch everything
